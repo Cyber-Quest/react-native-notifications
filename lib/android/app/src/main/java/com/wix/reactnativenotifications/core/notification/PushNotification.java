@@ -8,7 +8,6 @@ import android.content.Context;
 import android.content.Intent;
 import android.os.Build;
 import android.os.Bundle;
-import android.util.Log;
 
 import com.facebook.react.bridge.ReactContext;
 import com.wix.reactnativenotifications.core.AppLaunchHelper;
@@ -22,7 +21,6 @@ import com.wix.reactnativenotifications.core.NotificationIntentAdapter;
 import static com.wix.reactnativenotifications.Defs.NOTIFICATION_OPENED_EVENT_NAME;
 import static com.wix.reactnativenotifications.Defs.NOTIFICATION_RECEIVED_EVENT_NAME;
 import static com.wix.reactnativenotifications.Defs.NOTIFICATION_RECEIVED_BACKGROUND_EVENT_NAME;
-import static com.wix.reactnativenotifications.Defs.LOGTAG;
 
 public class PushNotification implements IPushNotification {
 
@@ -65,7 +63,7 @@ public class PushNotification implements IPushNotification {
     @Override
     public void onReceived() throws InvalidNotificationException {
         if (!mAppLifecycleFacade.isAppVisible()) {
-            postNotification(null);
+            postNotification(mNotificationProps.getId());
             notifyReceivedBackgroundToJS();
         } else {
             notifyReceivedToJS();
@@ -178,7 +176,7 @@ public class PushNotification implements IPushNotification {
 
     private void setUpIconColor(Notification.Builder notification) {
         int colorResID = getAppResourceId("colorAccent", "color");
-        if (colorResID != 0) {
+        if (colorResID != 0 && Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
             int color = mContext.getResources().getColor(colorResID);
             notification.setColor(color);
         }
@@ -200,36 +198,25 @@ public class PushNotification implements IPushNotification {
     }
 
     private void notifyReceivedToJS() {
-        try {
-            Bundle bundle = mNotificationProps.asBundle();
-            mJsIOHelper.sendEventToJS(NOTIFICATION_RECEIVED_EVENT_NAME, bundle, mAppLifecycleFacade.getRunningReactContext());
-        } catch (NullPointerException ex) {
-            Log.e(LOGTAG, "notifyReceivedToJS: Null pointer exception");
-        }
+        mJsIOHelper.sendEventToJS(NOTIFICATION_RECEIVED_EVENT_NAME, mNotificationProps.asBundle(), mAppLifecycleFacade.getRunningReactContext());
     }
 
     private void notifyReceivedBackgroundToJS() {
-        try {
-            Bundle bundle = mNotificationProps.asBundle();
-            mJsIOHelper.sendEventToJS(NOTIFICATION_RECEIVED_BACKGROUND_EVENT_NAME, bundle, mAppLifecycleFacade.getRunningReactContext());
-        } catch (NullPointerException ex) {
-            Log.e(LOGTAG, "notifyReceivedBackgroundToJS: Null pointer exception");
-        }
+        mJsIOHelper.sendEventToJS(NOTIFICATION_RECEIVED_BACKGROUND_EVENT_NAME, mNotificationProps.asBundle(), mAppLifecycleFacade.getRunningReactContext());
     }
 
     private void notifyOpenedToJS() {
         Bundle response = new Bundle();
-
         try {
-            response.putBundle("notification", mNotificationProps.asBundle());
-            mJsIOHelper.sendEventToJS(NOTIFICATION_OPENED_EVENT_NAME, response, mAppLifecycleFacade.getRunningReactContext());
-        } catch (NullPointerException ex) {
-            Log.e(LOGTAG, "notifyOpenedToJS: Null pointer exception");
+                    response.putBundle("notification", mNotificationProps.asBundle());
+        } catch (NullPointerException e) {
+                    //Log.e(LOGTAG, "notifyOpenedToJS: Null pointer exception");
         }
+        mJsIOHelper.sendEventToJS(NOTIFICATION_OPENED_EVENT_NAME, response, mAppLifecycleFacade.getRunningReactContext());
     }
 
     protected void launchOrResumeApp() {
-        if (NotificationIntentAdapter.canHandleTrampolineActivity(mContext)) {
+        if (!NotificationIntentAdapter.cannotHandleTrampolineActivity(mContext)) {
             final Intent intent = mAppLaunchHelper.getLaunchIntent(mContext);
             mContext.startActivity(intent);
         }
